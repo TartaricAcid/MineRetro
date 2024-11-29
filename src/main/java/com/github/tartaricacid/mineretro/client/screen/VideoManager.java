@@ -76,7 +76,10 @@ public class VideoManager {
 
     private VideoRefresh refreshRecall(int screenWidth, int screenHeight) {
         return (data, width, height, pitch) -> {
-            ByteBuffer byteBuffer = data.getByteBuffer(0, pitch);
+            ByteBuffer byteBuffer = null;
+            if (data != null) {
+                byteBuffer = data.getByteBuffer(0, pitch);
+            }
 
             GlStateManager._bindTexture(textureId[0]);
             glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
