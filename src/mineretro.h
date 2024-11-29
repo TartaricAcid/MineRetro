@@ -42,6 +42,10 @@ namespace mineretro {
 
     void mineretro_set_audio_batch(retro_audio_sample_batch_t audio);
 
+    void mineretro_set_input_poll(retro_input_poll_t input_poll);
+
+    void mineretro_set_input_state(retro_input_state_t input_state);
+
     retro_system_av_info mineretro_get_system_av_info();
 
     retro_game_geometry mineretro_get_geometry_info();

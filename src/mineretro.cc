@@ -20,6 +20,8 @@ namespace mineretro {
     retro_video_refresh_t mineretro_video = nullptr;
     retro_audio_sample_t mineretro_audio = nullptr;
     retro_audio_sample_batch_t mineretro_audio_batch = nullptr;
+    retro_input_poll_t mineretro_input_poll = nullptr;
+    retro_input_state_t mineretro_input_state = nullptr;
 
     void MineretroInit(const char *core_path, const char *game_path) {
         CoreLoad(core_path);
@@ -264,10 +266,11 @@ namespace mineretro {
     }
 
     void CoreInputPoll() {
+        mineretro_input_poll();
     }
 
     int16_t CoreInputState(unsigned port, unsigned device, unsigned index, unsigned id) {
-        return 0;
+        return mineretro_input_state(port, device, index, id);
     }
 
     size_t CoreAudioSampleBatch(const int16_t *data, const size_t frames) {
@@ -310,6 +313,14 @@ namespace mineretro {
 
     void mineretro_set_audio_batch(const retro_audio_sample_batch_t audio) {
         mineretro_audio_batch = audio;
+    }
+
+    void mineretro_set_input_poll(const retro_input_poll_t input_poll) {
+        mineretro_input_poll = input_poll;
+    }
+
+    void mineretro_set_input_state(const retro_input_state_t input_state) {
+        mineretro_input_state = input_state;
     }
 
     retro_system_av_info mineretro_get_system_av_info() {
