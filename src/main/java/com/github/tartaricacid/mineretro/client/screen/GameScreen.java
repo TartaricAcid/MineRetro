@@ -12,6 +12,7 @@ public class GameScreen extends Screen {
     private final MineretroMiddleTier mineRetro;
     private final VideoManager videoManager;
     private final SoundManager soundManager;
+    private final InputManager inputManager;
 
     public GameScreen(String corePath, String gamePath) {
         super(Component.literal("MineRetro"));
@@ -21,11 +22,14 @@ public class GameScreen extends Screen {
 
         this.videoManager = new VideoManager(GAME_WIDTH, GAME_HEIGHT);
         this.videoManager.init(this.mineRetro.mineretro_get_pixel_format());
-        this.mineRetro.mineretro_set_video((data, width, height, pitch) ->
-                this.videoManager.getVideoRefresh().invoke(data, width, height, pitch));
+        this.mineRetro.mineretro_set_video(this.videoManager.getVideoRefresh());
 
         this.soundManager = new SoundManager(this.mineRetro);
         mineRetro.mineretro_set_audio_batch(this.soundManager.getAudioSampleBatch());
+
+        this.inputManager = new InputManager();
+        mineRetro.mineretro_set_input_poll(this.inputManager.getInputPoll());
+        mineRetro.mineretro_set_input_state(this.inputManager.getInputState());
     }
 
     @Override

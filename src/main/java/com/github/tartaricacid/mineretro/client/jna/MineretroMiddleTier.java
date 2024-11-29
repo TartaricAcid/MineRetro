@@ -22,6 +22,10 @@ public interface MineretroMiddleTier extends Library {
 
     void mineretro_set_audio_batch(AudioSampleBatch audio);
 
+    void mineretro_set_input_poll(InputPoll inputPoll);
+
+    void mineretro_set_input_state(InputState inputState);
+
     SystemAvInfo.ByValue mineretro_get_system_av_info();
 
     GameGeometry.ByValue mineretro_get_geometry_info();
@@ -38,6 +42,14 @@ public interface MineretroMiddleTier extends Library {
 
     interface AudioSampleBatch extends Callback {
         void invoke(Pointer data, int frames);
+    }
+
+    interface InputPoll extends Callback {
+        void invoke();
+    }
+
+    interface InputState extends Callback {
+        int invoke(int port, int device, int index, int id);
     }
 
     @Structure.FieldOrder({"base_width", "base_height", "max_width", "max_height", "aspect_ratio"})
