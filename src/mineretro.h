@@ -46,11 +46,15 @@ namespace mineretro {
 
     void mineretro_set_input_state(retro_input_state_t input_state);
 
+    void mineretro_set_system_and_save_dir(char *system, char *save);
+
     retro_system_av_info mineretro_get_system_av_info();
 
     retro_game_geometry mineretro_get_geometry_info();
 
     retro_pixel_format mineretro_get_pixel_format();
+
+    unsigned mineretro_get_rotation();
     }
 
     void CoreLoad(const char *core_file);

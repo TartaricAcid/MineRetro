@@ -1,10 +1,8 @@
 #include <windows.h>
-#include <stdio.h>
 #include "libretro.h"
 #include "mineretro.h"
-
-#include <iostream>
-#include <ostream>
+#include <stdio.h>
+#include <stdlib.h>
 
 namespace mineretro {
     const char *kLogLevel[] = {"Debug", "Info", "Warning", "Error"};
@@ -16,6 +14,9 @@ namespace mineretro {
     retro_system_av_info av_info;
     retro_game_geometry geometry_info;
     retro_pixel_format pixel_format;
+    unsigned rotation = 0;
+    char *system_dir = nullptr;
+    char *save_dir = nullptr;
 
     retro_video_refresh_t mineretro_video = nullptr;
     retro_audio_sample_t mineretro_audio = nullptr;
@@ -100,6 +101,12 @@ namespace mineretro {
     }
 
     bool CoreEnvironment(const unsigned cmd, const void *data) {
+        // 这个选项每帧会执行一次，故放在最前面
+        if (cmd == RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE) {
+            *(bool *) data = false;
+            return true;
+        }
+
         switch (cmd) {
             case RETRO_ENVIRONMENT_SET_VARIABLES: {
                 // 将 data 转换成 retro_variable[]，然后复制给 g_vars
@@ -158,24 +165,23 @@ namespace mineretro {
                 return true;
             }
 
-            case RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE: {
-                bool *bval = (bool *) data;
-                *bval = false;
-                return true;
-            }
-
             case RETRO_ENVIRONMENT_GET_LOG_INTERFACE: {
                 auto *cb = (retro_log_callback *) data;
                 cb->log = CoreLog;
                 return true;
             }
-            case RETRO_ENVIRONMENT_GET_PERF_INTERFACE: {
+
+            case RETRO_ENVIRONMENT_SET_ROTATION: {
+                rotation = *static_cast<const unsigned *>(data);
                 return true;
             }
 
+            case RETRO_ENVIRONMENT_GET_PERF_INTERFACE: {
+                return false;
+            }
+
             case RETRO_ENVIRONMENT_GET_CAN_DUPE: {
-                bool *bval = (bool *) data;
-                *bval = true;
+                *(bool *) data = true;
                 return true;
             }
 
@@ -189,11 +195,11 @@ namespace mineretro {
             }
 
             case RETRO_ENVIRONMENT_SET_HW_RENDER: {
-                return true;
+                return false;
             }
 
             case RETRO_ENVIRONMENT_SET_FRAME_TIME_CALLBACK: {
-                return true;
+                return false;
             }
 
             case RETRO_ENVIRONMENT_SET_AUDIO_CALLBACK: {
@@ -202,10 +208,12 @@ namespace mineretro {
                 return true;
             }
 
-            case RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY:
+            case RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY: {
+                *(const char **) data = save_dir;
+                return true;
+            }
             case RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY: {
-                const char **dir = (const char **) data;
-                *dir = ".";
+                *(const char **) data = system_dir;
                 return true;
             }
 
@@ -236,6 +244,7 @@ namespace mineretro {
     void CoreLoadGame(const char *filename) {
         retro_system_info system = {nullptr};
         retro_game_info info = {filename, nullptr};
+        rotation = 0;
 
         info.path = filename;
         info.meta = "";
@@ -249,7 +258,19 @@ namespace mineretro {
 
             // 如果是开启了 need_fullpath
             if (!system.need_fullpath) {
-                CoreLog(RETRO_LOG_ERROR, "Not need full path...");
+                // 打开文件（以二进制模式）
+                FILE *file = fopen(filename, "rb");
+                // 获取文件大小
+                fseek(file, 0, SEEK_END);
+                info.size = ftell(file);
+                // 将文件指针移回文件开头
+                fseek(file, 0, SEEK_SET);
+                // 为文件内容分配内存
+                info.data = malloc(info.size);
+                // 读取文件内容到缓冲区
+                fread((void *) info.data, 1, info.size, file);
+                // 关闭文件
+                fclose(file);
             }
         }
 
@@ -257,11 +278,18 @@ namespace mineretro {
             CoreLog(RETRO_LOG_ERROR, "The core failed to load the content.");
         }
 
+        if (info.data) {
+            free((void *) info.data);
+        }
+
         // 获取视频信息
         libretro_reference.retro_get_system_av_info(&av_info);
     }
 
     void CoreVideoRefresh(const void *data, unsigned width, unsigned height, size_t pitch) {
+        if (data == nullptr) {
+            return;
+        }
         mineretro_video(data, width, height, pitch);
     }
 
@@ -323,6 +351,11 @@ namespace mineretro {
         mineretro_input_state = input_state;
     }
 
+    void mineretro_set_system_and_save_dir(char *system, char *save) {
+        system_dir = system;
+        save_dir = save;
+    }
+
     retro_system_av_info mineretro_get_system_av_info() {
         return av_info;
     }
@@ -335,7 +368,16 @@ namespace mineretro {
         return pixel_format;
     }
 
+    unsigned mineretro_get_rotation() {
+        return rotation;
+    }
+
     void CoreLog(const retro_log_level level, const char *fmt, ...) {
+        // 有些核心会 log 刷屏
+        if (level == RETRO_LOG_DEBUG) {
+            return;
+        }
+
         char buffer[4096] = {};
         va_list va;
 
@@ -343,7 +385,7 @@ namespace mineretro {
         vsnprintf(buffer, sizeof(buffer), fmt, va);
         va_end(va);
 
-        fprintf(stderr, "[%s] [Mineretro] %s", kLogLevel[level], buffer);
+        fprintf(stderr, "[%s] [Mineretro] %s\n", kLogLevel[level], buffer);
         fflush(stderr);
 
         if (level == RETRO_LOG_ERROR) {
