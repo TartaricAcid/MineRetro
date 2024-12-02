@@ -1,6 +1,7 @@
 package com.github.tartaricacid.mineretro.client.input;
 
 
+import com.github.tartaricacid.mineretro.client.screen.FileScreen;
 import com.github.tartaricacid.mineretro.client.screen.GameScreen;
 import com.github.tartaricacid.mineretro.config.GameConfig;
 import com.mojang.blaze3d.platform.InputConstants;
@@ -30,20 +31,32 @@ public class GameKey {
 
     @SubscribeEvent
     public static void onGameKeyPress(InputEvent.Key event) {
-        if (event.getAction() == GLFW.GLFW_PRESS && GAME_KEY.matches(event.getKey(), event.getScanCode())) {
+        if (event.getAction() == GLFW.GLFW_PRESS && GAME_KEY.matches(event.getKey(), event.getScanCode()) && isInGame()) {
             if (Minecraft.getInstance().player == null) {
                 return;
             }
+            if (Minecraft.getInstance().player instanceof LocalPlayer) {
+            }
             LocalPlayer player = Minecraft.getInstance().player;
-            if (!GameConfig.isCoreExists()) {
-                player.sendSystemMessage(Component.literal("需要在 config/mineretro 文件夹下放置一个名为 core.dll 的核心文件"));
-                return;
-            }
-            if (!GameConfig.isGameExists()) {
-                player.sendSystemMessage(Component.literal("需要在 config/mineretro 文件夹下放置一个名为 game.nes 的游戏文件"));
-                return;
-            }
-            Minecraft.getInstance().setScreen(new GameScreen(GameConfig.getCorePath(), GameConfig.getGamePath()));
+            Minecraft.getInstance().setScreen(new FileScreen());
         }
+    }
+
+    public static boolean isInGame() {
+        Minecraft mc = Minecraft.getInstance();
+        // 不能是加载界面
+        if (mc.getOverlay() != null) {
+            return false;
+        }
+        // 不能打开任何 GUI
+        if (mc.screen != null) {
+            return false;
+        }
+        // 当前窗口捕获鼠标操作
+        if (!mc.mouseHandler.isMouseGrabbed()) {
+            return false;
+        }
+        // 选择了当前窗口
+        return mc.isWindowActive();
     }
 }

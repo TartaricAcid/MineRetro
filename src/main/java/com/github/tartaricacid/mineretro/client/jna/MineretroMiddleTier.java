@@ -26,18 +26,22 @@ public interface MineretroMiddleTier extends Library {
 
     void mineretro_set_input_state(InputState inputState);
 
+    void mineretro_set_system_and_save_dir(String systemDir, String saveDir);
+
     SystemAvInfo.ByValue mineretro_get_system_av_info();
 
     GameGeometry.ByValue mineretro_get_geometry_info();
 
     int mineretro_get_pixel_format();
 
+    int mineretro_get_rotation();
+
     interface VideoRefresh extends Callback {
         void invoke(Pointer data, int width, int height, int pitch);
     }
 
     interface AudioSample extends Callback {
-        void invoke(int left, int right);
+        void invoke(short left, short right);
     }
 
     interface AudioSampleBatch extends Callback {

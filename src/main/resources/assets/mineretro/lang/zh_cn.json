@@ -1,0 +1,15 @@
+{
+  "key.category.mineretro": "MineRetro",
+  "key.mineretro.game.desc": "打开游戏",
+  "screen.mineretro.file_screen.core": "核心文件：%s",
+  "screen.mineretro.file_screen.game": "游戏文件：%s",
+  "screen.mineretro.file_screen.choose_core": "选择核心文件",
+  "screen.mineretro.file_screen.choose_game": "选择游戏文件",
+  "screen.mineretro.file_screen.run_game": "运行游戏",
+  "screen.mineretro.file_screen.core_not_exist": "核心文件不存在",
+  "screen.mineretro.file_screen.game_not_exist": "游戏文件不存在",
+  "screen.mineretro.file_screen.core_path_chinese": "核心路径不能包含中文",
+  "screen.mineretro.file_screen.game_path_chinese": "游戏路径不能包含中文",
+  "screen.mineretro.game_screen.warning": "警告",
+  "screen.mineretro.game_screen.warning.message": "你正在关闭游戏！\n是否要直接关闭？"
+}

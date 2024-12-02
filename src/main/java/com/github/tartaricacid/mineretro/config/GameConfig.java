@@ -8,33 +8,27 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public class GameConfig {
-    private static final Path CONFIG_PATH = Paths.get(".").resolve("config").resolve(Mineretro.MOD_ID);
-    private static final Path CORE_PATH = CONFIG_PATH.resolve("core.dll");
-    private static final Path GAME_PATH = CONFIG_PATH.resolve("game.nes");
+    public static final Path CONFIG_DIR_PATH = Paths.get(".").resolve("config").resolve(Mineretro.MOD_ID);
+    public static final Path CORE_DIR_PATH = CONFIG_DIR_PATH.resolve("core");
+    public static final Path GAME_DIR_PATH = CONFIG_DIR_PATH.resolve("game");
+    public static final Path SYSTEM_DIR_PATH = CONFIG_DIR_PATH.resolve("system");
+    public static final Path SAVE_DIR_PATH = CONFIG_DIR_PATH.resolve("save");
 
     public static void init() {
-        if (!CONFIG_PATH.toFile().isDirectory()) {
+        createDirectory(CONFIG_DIR_PATH);
+        createDirectory(CORE_DIR_PATH);
+        createDirectory(GAME_DIR_PATH);
+        createDirectory(SYSTEM_DIR_PATH);
+        createDirectory(SAVE_DIR_PATH);
+    }
+
+    public static void createDirectory(Path path) {
+        if (!path.toFile().isDirectory()) {
             try {
-                Files.createDirectories(CONFIG_PATH);
+                Files.createDirectories(path);
             } catch (IOException e) {
-                Mineretro.LOGGER.error(e.getMessage());
+                throw new RuntimeException(e);
             }
         }
-    }
-
-    public static String getCorePath() {
-        return CORE_PATH.toAbsolutePath().toString();
-    }
-
-    public static String getGamePath() {
-        return GAME_PATH.toAbsolutePath().toString();
-    }
-
-    public static boolean isCoreExists() {
-        return Files.exists(CORE_PATH);
-    }
-
-    public static boolean isGameExists() {
-        return Files.exists(GAME_PATH);
     }
 }

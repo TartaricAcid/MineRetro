@@ -1,0 +1,15 @@
+{
+  "key.category.mineretro": "MineRetro",
+  "key.mineretro.game.desc": "Open Game",
+  "screen.mineretro.file_screen.core": "Core File: %s",
+  "screen.mineretro.file_screen.game": "Game File: %s",
+  "screen.mineretro.file_screen.choose_core": "Choose Core File",
+  "screen.mineretro.file_screen.choose_game": "Choose Game File",
+  "screen.mineretro.file_screen.run_game": "Run Game",
+  "screen.mineretro.file_screen.core_not_exist": "Core File Not Exist",
+  "screen.mineretro.file_screen.game_not_exist": "Game File Not Exist",
+  "screen.mineretro.file_screen.core_path_chinese": "The core path cannot contain Chinese",
+  "screen.mineretro.file_screen.game_path_chinese": "The game path cannot contain Chinese",
+  "screen.mineretro.game_screen.warning": "Warning",
+  "screen.mineretro.game_screen.warning.message": "You are closing the game!\nDo you want to close it directly?"
+}

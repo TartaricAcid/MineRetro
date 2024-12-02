@@ -1,6 +1,6 @@
 package com.github.tartaricacid.mineretro.client.screen;
 
-import com.github.tartaricacid.mineretro.Mineretro;
+import com.github.tartaricacid.mineretro.client.jna.Rotation;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
@@ -15,14 +15,19 @@ import static org.lwjgl.opengl.GL12.*;
 
 public class VideoManager {
     private final int[] textureId = new int[]{0};
-    private final int[] offset = new int[]{0, 0};
+    private final int[] screenSize = new int[]{0, 0};
     private final VideoRefresh videoRefresh;
+    private final int rotation;
+    private final GameGeometry geometry;
 
     private int pixelFormat = GL_UNSIGNED_SHORT_5_6_5;
     private int pixelType = GL_RGB;
+    private int bitsPerPixel = 2;
 
-    public VideoManager(int screenWidth, int screenHeight) {
+    public VideoManager(int screenWidth, int screenHeight, int rotation, GameGeometry geometry) {
         this.videoRefresh = refreshRecall(screenWidth, screenHeight);
+        this.rotation = rotation;
+        this.geometry = geometry;
     }
 
     public void init(int mineretroPixelFormat) {
@@ -40,9 +45,9 @@ public class VideoManager {
         return videoRefresh;
     }
 
-    public void resize(int left, int top) {
-        this.offset[0] = left;
-        this.offset[1] = top;
+    public void resize(int width, int height) {
+        this.screenSize[0] = width;
+        this.screenSize[1] = height;
     }
 
     private void genTexture() {
@@ -58,19 +63,18 @@ public class VideoManager {
             case RETRO_PIXEL_FORMAT_0RGB1555:
                 pixelFormat = GL_UNSIGNED_SHORT_5_5_5_1;
                 pixelType = GL_BGRA;
+                bitsPerPixel = 2;
                 break;
             case RETRO_PIXEL_FORMAT_XRGB8888:
                 pixelFormat = GL_UNSIGNED_INT_8_8_8_8_REV;
                 pixelType = GL_BGRA;
+                bitsPerPixel = 4;
                 break;
             case RETRO_PIXEL_FORMAT_RGB565:
-                pixelFormat = GL_UNSIGNED_SHORT_5_6_5;
-                pixelType = GL_RGB;
-                break;
             default:
                 pixelFormat = GL_UNSIGNED_SHORT_5_6_5;
                 pixelType = GL_RGB;
-                Mineretro.LOGGER.debug("Unknown pixel type {}", mineretroPixelFormat);
+                bitsPerPixel = 2;
         }
     }
 
@@ -81,30 +85,65 @@ public class VideoManager {
             GlStateManager._bindTexture(textureId[0]);
             glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
             glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
-            glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+            glPixelStorei(GL_UNPACK_ROW_LENGTH, pitch / bitsPerPixel);
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0,
                     pixelType, pixelFormat, byteBuffer);
+            // 6407 33635
 
             RenderSystem.setShaderTexture(0, textureId[0]);
             RenderSystem.setShader(GameRenderer::getPositionTexShader);
             RenderSystem.enableBlend();
 
-            drawGame(screenWidth, screenHeight);
+            float aspectRatio;
+            if (rotation == Rotation.ROTATE_0 || rotation == Rotation.ROTATE_180) {
+                aspectRatio = (float) this.geometry.base_height / this.geometry.base_width;
+            } else {
+                // 90 度，或者 270 度旋转的
+                aspectRatio = (float) this.geometry.base_width / this.geometry.base_height;
+            }
+
+            // 先以宽为参考
+            float currentWidth = screenWidth;
+            float currentHeight = screenWidth * aspectRatio;
+            // 如果计算出的高比设定的还要大，那么得以设定的高为参考
+            if (currentHeight > screenHeight) {
+                currentWidth = screenHeight / aspectRatio;
+                currentHeight = screenHeight;
+            }
+
+            drawGame(currentWidth, currentHeight);
             RenderSystem.disableBlend();
         };
     }
 
     private void drawGame(float width, float height) {
         PoseStack poseStack = new PoseStack();
-        poseStack.translate(this.offset[0], this.offset[1], 0);
+        poseStack.translate((this.screenSize[0] - width) / 2, (this.screenSize[1] - height) / 2, 0);
         Matrix4f pose = poseStack.last().pose();
-
         BufferBuilder bufferbuilder = Tesselator.getInstance().getBuilder();
         bufferbuilder.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
-        bufferbuilder.vertex(pose, 0, 0, 0).uv(0f, 0f).color(255, 255, 255, 255).endVertex();
-        bufferbuilder.vertex(pose, 0, height, 0).uv(0f, 1f).color(255, 255, 255, 255).endVertex();
-        bufferbuilder.vertex(pose, width, height, 0).uv(1f, 1f).color(255, 255, 255, 255).endVertex();
-        bufferbuilder.vertex(pose, width, 0, 0).uv(1f, 0f).color(255, 255, 255, 255).endVertex();
+
+        if (rotation == Rotation.ROTATE_0) {
+            bufferbuilder.vertex(pose, 0, 0, 0).uv(0f, 0f).color(255, 255, 255, 255).endVertex();
+            bufferbuilder.vertex(pose, 0, height, 0).uv(0f, 1f).color(255, 255, 255, 255).endVertex();
+            bufferbuilder.vertex(pose, width, height, 0).uv(1f, 1f).color(255, 255, 255, 255).endVertex();
+            bufferbuilder.vertex(pose, width, 0, 0).uv(1f, 0f).color(255, 255, 255, 255).endVertex();
+        } else if (rotation == Rotation.ROTATE_90) {
+            bufferbuilder.vertex(pose, 0, 0, 0).uv(1f, 0f).color(255, 255, 255, 255).endVertex();
+            bufferbuilder.vertex(pose, 0, height, 0).uv(0f, 0f).color(255, 255, 255, 255).endVertex();
+            bufferbuilder.vertex(pose, width, height, 0).uv(0f, 1f).color(255, 255, 255, 255).endVertex();
+            bufferbuilder.vertex(pose, width, 0, 0).uv(1f, 1f).color(255, 255, 255, 255).endVertex();
+        } else if (rotation == Rotation.ROTATE_180) {
+            bufferbuilder.vertex(pose, 0, 0, 0).uv(1f, 1f).color(255, 255, 255, 255).endVertex();
+            bufferbuilder.vertex(pose, 0, height, 0).uv(1f, 0f).color(255, 255, 255, 255).endVertex();
+            bufferbuilder.vertex(pose, width, height, 0).uv(0f, 0f).color(255, 255, 255, 255).endVertex();
+            bufferbuilder.vertex(pose, width, 0, 0).uv(0f, 1f).color(255, 255, 255, 255).endVertex();
+        } else if (rotation == Rotation.ROTATE_270) {
+            bufferbuilder.vertex(pose, 0, 0, 0).uv(0f, 1f).color(255, 255, 255, 255).endVertex();
+            bufferbuilder.vertex(pose, 0, height, 0).uv(1f, 1f).color(255, 255, 255, 255).endVertex();
+            bufferbuilder.vertex(pose, width, height, 0).uv(1f, 0f).color(255, 255, 255, 255).endVertex();
+            bufferbuilder.vertex(pose, width, 0, 0).uv(0f, 0f).color(255, 255, 255, 255).endVertex();
+        }
 
         BufferUploader.drawWithShader(bufferbuilder.end());
     }
