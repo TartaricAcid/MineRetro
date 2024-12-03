@@ -6,6 +6,7 @@ namespace mineretro {
         HMODULE hmodule;
         bool initialized;
         bool supports_no_game;
+        bool is_game_loaded;
         retro_perf_counter *perf_counter_last;
 
         void (*retro_init)();
@@ -30,11 +31,15 @@ namespace mineretro {
     };
 
     extern "C" {
-    void MineretroInit(const char *core_path, const char *game_path);
+    void MineretroLoadCore(const char *core_file);
+
+    void MineretroUnloadCore();
+
+    bool MineretroLoadGame(const char *game_file);
+
+    void MineretroUnloadGame();
 
     void MineretroLoop();
-
-    void MineretroDeinit();
 
     void mineretro_set_video(retro_video_refresh_t video);
 
@@ -48,6 +53,8 @@ namespace mineretro {
 
     void mineretro_set_system_and_save_dir(char *system, char *save);
 
+    retro_system_info mineretro_get_system_info();
+
     retro_system_av_info mineretro_get_system_av_info();
 
     retro_game_geometry mineretro_get_geometry_info();
@@ -57,11 +64,7 @@ namespace mineretro {
     unsigned mineretro_get_rotation();
     }
 
-    void CoreLoad(const char *core_file);
-
     bool CoreEnvironment(unsigned cmd, const void *data);
-
-    void CoreLoadGame(const char *filename);
 
     void CoreVideoRefresh(const void *data, unsigned width, unsigned height, size_t pitch);
 

@@ -1,19 +1,23 @@
 #include <windows.h>
 #include "libretro.h"
 #include "mineretro.h"
+
+#include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 namespace mineretro {
     const char *kLogLevel[] = {"Debug", "Info", "Warning", "Error"};
 
-    LibretroReference libretro_reference;
+    LibretroReference libretro_reference = {};
 
     retro_variable *g_vars = nullptr;
-    retro_audio_callback audio_callback;
-    retro_system_av_info av_info;
-    retro_game_geometry geometry_info;
-    retro_pixel_format pixel_format;
+    retro_system_info system_info = {};
+    retro_audio_callback audio_callback = {};
+    retro_system_av_info av_info = {};
+    retro_game_geometry geometry_info = {};
+    retro_pixel_format pixel_format = RETRO_PIXEL_FORMAT_0RGB1555;
+
     unsigned rotation = 0;
     char *system_dir = nullptr;
     char *save_dir = nullptr;
@@ -24,22 +28,7 @@ namespace mineretro {
     retro_input_poll_t mineretro_input_poll = nullptr;
     retro_input_state_t mineretro_input_state = nullptr;
 
-    void MineretroInit(const char *core_path, const char *game_path) {
-        CoreLoad(core_path);
-
-        // 加载游戏
-        CoreLoadGame(game_path);
-
-        // 设置当前输入按键布局为 RETRO_DEVICE_JOYPAD
-        libretro_reference.retro_set_controller_port_device(0, RETRO_DEVICE_JOYPAD);
-
-        // 启用音频
-        if (audio_callback.set_state) {
-            audio_callback.set_state(true);
-        }
-    }
-
-    void CoreLoad(const char *core_file) {
+    void MineretroLoadCore(const char *core_file) {
         // 初始化回调函数
         void (*set_environment)(retro_environment_t) = nullptr;
         void (*set_video_refresh)(retro_video_refresh_t) = nullptr;
@@ -96,8 +85,93 @@ namespace mineretro {
 
         libretro_reference.retro_init();
         libretro_reference.initialized = true;
+        // 获取系统信息
+        libretro_reference.retro_get_system_info(&system_info);
+        CoreLog(RETRO_LOG_INFO, "Core loaded: %s", core_file);
+    }
 
-        CoreLog(RETRO_LOG_INFO, "Core loaded");
+    void MineretroUnloadCore() {
+        if (libretro_reference.initialized) {
+            MineretroUnloadGame();
+            libretro_reference.retro_deinit();
+            FreeLibrary(libretro_reference.hmodule);
+            libretro_reference.initialized = false;
+        }
+
+        if (g_vars) {
+            for (const retro_variable *v = g_vars; v->key; ++v) {
+                free(const_cast<char *>(v->key));
+                free(const_cast<char *>(v->value));
+            }
+            free(g_vars);
+            g_vars = nullptr;
+        }
+    }
+
+    bool MineretroLoadGame(const char *game_file) {
+        retro_game_info info = {game_file, nullptr};
+        rotation = 0;
+
+        info.path = game_file;
+        info.meta = "";
+        info.data = nullptr;
+        info.size = 0;
+
+        // 如果文件名不为空
+        if (game_file) {
+            // 如果是不是 need_fullpath
+            if (!system_info.need_fullpath) {
+                // 打开文件（以二进制模式）
+                FILE *file = fopen(game_file, "rb");
+                // 获取文件大小
+                fseek(file, 0, SEEK_END);
+                info.size = ftell(file);
+                // 将文件指针移回文件开头
+                fseek(file, 0, SEEK_SET);
+                // 为文件内容分配内存
+                info.data = malloc(info.size);
+                // 读取文件内容到缓冲区
+                fread(const_cast<void *>(info.data), 1, info.size, file);
+                // 关闭文件
+                fclose(file);
+            }
+        }
+
+        const bool result = libretro_reference.retro_load_game(&info);
+        if (info.data) {
+            free(const_cast<void *>(info.data));
+        }
+        if (result) {
+            libretro_reference.is_game_loaded = true;
+            CoreLog(RETRO_LOG_INFO, "Successfully loaded game: %s", game_file);
+            // 获取视频信息
+            libretro_reference.retro_get_system_av_info(&av_info);
+            // 设置当前输入按键布局为 RETRO_DEVICE_JOYPAD
+            libretro_reference.retro_set_controller_port_device(0, RETRO_DEVICE_JOYPAD);
+            // 启用音频
+            if (audio_callback.set_state) {
+                audio_callback.set_state(true);
+            }
+        } else {
+            libretro_reference.is_game_loaded = false;
+            CoreLog(RETRO_LOG_ERROR, "The core failed to load the content.");
+        }
+        return result;
+    }
+
+    void MineretroUnloadGame() {
+        if (libretro_reference.is_game_loaded) {
+            libretro_reference.retro_unload_game();
+            CoreLog(RETRO_LOG_INFO, "Successfully unloaded game.");
+        }
+        libretro_reference.is_game_loaded = false;
+    }
+
+    void MineretroLoop() {
+        if (audio_callback.callback) {
+            audio_callback.callback();
+        }
+        libretro_reference.retro_run();
     }
 
     bool CoreEnvironment(const unsigned cmd, const void *data) {
@@ -241,51 +315,6 @@ namespace mineretro {
         }
     }
 
-    void CoreLoadGame(const char *filename) {
-        retro_system_info system = {nullptr};
-        retro_game_info info = {filename, nullptr};
-        rotation = 0;
-
-        info.path = filename;
-        info.meta = "";
-        info.data = nullptr;
-        info.size = 0;
-
-        // 如果文件名不为空
-        if (filename) {
-            // 获取系统信息
-            libretro_reference.retro_get_system_info(&system);
-
-            // 如果是开启了 need_fullpath
-            if (!system.need_fullpath) {
-                // 打开文件（以二进制模式）
-                FILE *file = fopen(filename, "rb");
-                // 获取文件大小
-                fseek(file, 0, SEEK_END);
-                info.size = ftell(file);
-                // 将文件指针移回文件开头
-                fseek(file, 0, SEEK_SET);
-                // 为文件内容分配内存
-                info.data = malloc(info.size);
-                // 读取文件内容到缓冲区
-                fread((void *) info.data, 1, info.size, file);
-                // 关闭文件
-                fclose(file);
-            }
-        }
-
-        if (!libretro_reference.retro_load_game(&info)) {
-            CoreLog(RETRO_LOG_ERROR, "The core failed to load the content.");
-        }
-
-        if (info.data) {
-            free((void *) info.data);
-        }
-
-        // 获取视频信息
-        libretro_reference.retro_get_system_av_info(&av_info);
-    }
-
     void CoreVideoRefresh(const void *data, unsigned width, unsigned height, size_t pitch) {
         if (data == nullptr) {
             return;
@@ -307,28 +336,6 @@ namespace mineretro {
 
     void CoreAudioSample(const int16_t left, const int16_t right) {
         mineretro_audio(left, right);
-    }
-
-    void MineretroLoop() {
-        if (audio_callback.callback) {
-            audio_callback.callback();
-        }
-        libretro_reference.retro_run();
-    }
-
-    void MineretroDeinit() {
-        if (libretro_reference.initialized) {
-            libretro_reference.retro_deinit();
-            FreeLibrary(libretro_reference.hmodule);
-        }
-
-        if (g_vars) {
-            for (const retro_variable *v = g_vars; v->key; ++v) {
-                free(const_cast<char *>(v->key));
-                free(const_cast<char *>(v->value));
-            }
-            free(g_vars);
-        }
     }
 
     void mineretro_set_video(const retro_video_refresh_t video) {
@@ -356,6 +363,10 @@ namespace mineretro {
         save_dir = save;
     }
 
+    retro_system_info mineretro_get_system_info() {
+        return system_info;
+    }
+
     retro_system_av_info mineretro_get_system_av_info() {
         return av_info;
     }
@@ -378,18 +389,25 @@ namespace mineretro {
             return;
         }
 
-        char buffer[4096] = {};
+        char msg_buffer[4096] = {};
+        char time_buffer[16] = {};
+        const time_t now = time(nullptr);
         va_list va;
 
         va_start(va, fmt);
-        vsnprintf(buffer, sizeof(buffer), fmt, va);
+        vsnprintf(msg_buffer, sizeof(msg_buffer), fmt, va);
         va_end(va);
 
-        fprintf(stderr, "[%s] [Mineretro] %s\n", kLogLevel[level], buffer);
-        fflush(stderr);
+        const tm *tm_info = localtime(&now);
+        strftime(time_buffer, sizeof(time_buffer), "%H:%M:%S", tm_info);
 
-        if (level == RETRO_LOG_ERROR) {
-            exit(EXIT_FAILURE);
+        // 判断最后一行是不是换行符
+        if (const int len = strlen(msg_buffer); msg_buffer[len - 1] == '\n') {
+            fprintf(stderr, "[%s] [%s] [Mineretro] %s", time_buffer, kLogLevel[level], msg_buffer);
+        } else {
+            fprintf(stderr, "[%s] [%s] [Mineretro] %s\n", time_buffer, kLogLevel[level], msg_buffer);
         }
+
+        fflush(stderr);
     }
 }
