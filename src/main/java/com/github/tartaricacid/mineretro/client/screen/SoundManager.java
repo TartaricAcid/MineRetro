@@ -69,6 +69,14 @@ public class SoundManager {
         return sampleBatch;
     }
 
+    public void start() {
+        this.sourceDataLine.start();
+    }
+
+    public void stop() {
+        this.sourceDataLine.stop();
+    }
+
     public void close() {
         if (sourceDataLine != null) {
             sourceDataLine.drain();

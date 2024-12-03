@@ -17,17 +17,17 @@ public class VideoManager {
     private final int[] textureId = new int[]{0};
     private final int[] screenSize = new int[]{0, 0};
     private final VideoRefresh videoRefresh;
-    private final int rotation;
     private final GameGeometry geometry;
+    private final int rotation;
 
     private int pixelFormat = GL_UNSIGNED_SHORT_5_6_5;
     private int pixelType = GL_RGB;
     private int bitsPerPixel = 2;
 
-    public VideoManager(int screenWidth, int screenHeight, int rotation, GameGeometry geometry) {
-        this.videoRefresh = refreshRecall(screenWidth, screenHeight);
-        this.rotation = rotation;
+    public VideoManager(GameGeometry geometry, int rotation) {
+        this.videoRefresh = refreshRecall();
         this.geometry = geometry;
+        this.rotation = rotation;
     }
 
     public void init(int mineretroPixelFormat) {
@@ -48,6 +48,38 @@ public class VideoManager {
     public void resize(int width, int height) {
         this.screenSize[0] = width;
         this.screenSize[1] = height;
+    }
+
+    public void renderVideo(int screenWidth, int screenHeight) {
+        // 没有材质时，不渲染
+        if (textureId[0] == 0) {
+            return;
+        }
+
+        // 附加材质，进行渲染
+        RenderSystem.setShaderTexture(0, textureId[0]);
+        RenderSystem.setShader(GameRenderer::getPositionTexShader);
+        RenderSystem.enableBlend();
+
+        float aspectRatio;
+        if (rotation == Rotation.ROTATE_0 || rotation == Rotation.ROTATE_180) {
+            aspectRatio = (float) this.geometry.base_height / this.geometry.base_width;
+        } else {
+            // 90 度，或者 270 度旋转的
+            aspectRatio = (float) this.geometry.base_width / this.geometry.base_height;
+        }
+
+        // 先以宽为参考
+        float currentWidth = screenWidth;
+        float currentHeight = screenWidth * aspectRatio;
+        // 如果计算出的高比设定的还要大，那么得以设定的高为参考
+        if (currentHeight > screenHeight) {
+            currentWidth = screenHeight / aspectRatio;
+            currentHeight = screenHeight;
+        }
+
+        drawGame(currentWidth, currentHeight);
+        RenderSystem.disableBlend();
     }
 
     private void genTexture() {
@@ -78,7 +110,7 @@ public class VideoManager {
         }
     }
 
-    private VideoRefresh refreshRecall(int screenWidth, int screenHeight) {
+    private VideoRefresh refreshRecall() {
         return (data, width, height, pitch) -> {
             ByteBuffer byteBuffer = data.getByteBuffer(0, pitch);
 
@@ -88,31 +120,6 @@ public class VideoManager {
             glPixelStorei(GL_UNPACK_ROW_LENGTH, pitch / bitsPerPixel);
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0,
                     pixelType, pixelFormat, byteBuffer);
-            // 6407 33635
-
-            RenderSystem.setShaderTexture(0, textureId[0]);
-            RenderSystem.setShader(GameRenderer::getPositionTexShader);
-            RenderSystem.enableBlend();
-
-            float aspectRatio;
-            if (rotation == Rotation.ROTATE_0 || rotation == Rotation.ROTATE_180) {
-                aspectRatio = (float) this.geometry.base_height / this.geometry.base_width;
-            } else {
-                // 90 度，或者 270 度旋转的
-                aspectRatio = (float) this.geometry.base_width / this.geometry.base_height;
-            }
-
-            // 先以宽为参考
-            float currentWidth = screenWidth;
-            float currentHeight = screenWidth * aspectRatio;
-            // 如果计算出的高比设定的还要大，那么得以设定的高为参考
-            if (currentHeight > screenHeight) {
-                currentWidth = screenHeight / aspectRatio;
-                currentHeight = screenHeight;
-            }
-
-            drawGame(currentWidth, currentHeight);
-            RenderSystem.disableBlend();
         };
     }
 

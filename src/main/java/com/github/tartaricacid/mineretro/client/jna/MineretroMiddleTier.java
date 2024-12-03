@@ -10,11 +10,15 @@ public interface MineretroMiddleTier extends Library {
 
     MineretroMiddleTier INSTANCE = Native.load("libMineretro", MineretroMiddleTier.class);
 
-    void MineretroInit(String corePath, String gamePath);
+    void MineretroLoadCore(String corePath);
+
+    void MineretroUnloadCore();
+
+    boolean MineretroLoadGame(String gamePath);
+
+    void MineretroUnloadGame();
 
     void MineretroLoop();
-
-    void MineretroDeinit();
 
     void mineretro_set_video(VideoRefresh video);
 
@@ -27,6 +31,8 @@ public interface MineretroMiddleTier extends Library {
     void mineretro_set_input_state(InputState inputState);
 
     void mineretro_set_system_and_save_dir(String systemDir, String saveDir);
+
+    SystemInfo.ByValue mineretro_get_system_info();
 
     SystemAvInfo.ByValue mineretro_get_system_av_info();
 
@@ -92,6 +98,21 @@ public interface MineretroMiddleTier extends Library {
         }
 
         public static class ByReference extends SystemAvInfo implements Structure.ByReference {
+        }
+    }
+
+    @Structure.FieldOrder({"library_name", "library_version", "valid_extensions", "need_fullpath", "block_extract"})
+    public class SystemInfo extends Structure {
+        public String library_name;
+        public String library_version;
+        public String valid_extensions;
+        public boolean need_fullpath;
+        public boolean block_extract;
+
+        public static class ByValue extends SystemInfo implements Structure.ByValue {
+        }
+
+        public static class ByReference extends SystemInfo implements Structure.ByReference {
         }
     }
 }
